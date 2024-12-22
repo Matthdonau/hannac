@@ -1,5 +1,5 @@
-#ifndef FileParser
-#define FileParser
+#ifndef FILEPARSER_HPP
+#define FILEPARSER_HPP
 
 // stdlibincludes
 #include <string>
@@ -58,8 +58,11 @@ struct HFileParser final
         // Get next char,
         char current;
         mFile >> current;
-        if(current == 0)
+
+        // We have to check again here for EOF.
+        if(mFile.eof())
             return EOF;
+
         return current;
     };
 
@@ -68,4 +71,4 @@ struct HFileParser final
     std::ifstream mFile;
 };
 } // namespace hannac
-#endif
+#endif // FILEPARSER_HPP

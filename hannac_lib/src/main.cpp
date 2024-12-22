@@ -5,6 +5,7 @@
 
 // hannac includes
 #include "FileParser.hpp"
+#include "Lexer.hpp"
 
 int main(int argc, char* argv[])
 {
@@ -19,15 +20,19 @@ int main(int argc, char* argv[])
     try
     {
         // Setup parsing of hanna file.
-        hannac::HFileParser Parser(filename);
-        char current;
-        while ((current = Parser.read()) != EOF)
+        hannac::HLexer lexer{hannac::HFileParser{filename}};
+        auto currentToken = lexer.get_token();
+        while(currentToken.first != hannac::HTokenType::END)
         {
-            std::cout << current;
+            if(currentToken.first == hannac::HTokenType::Identifier ||
+               currentToken.first == hannac::HTokenType::Method)
+                std::cout << std::get<std::string>(currentToken.second) << std::endl;
+            else if(currentToken.first == hannac::HTokenType::Number)
+                std::cout << std::get<std::int64_t>(currentToken.second) << std::endl;
+
+            currentToken = lexer.get_token();
         }
-        std::cout << std::endl;
-
-
+        
     }
     catch(const std::exception& excep)
     {

@@ -10,6 +10,7 @@ set (CXX_STANDARD_REQUIRED ON)
 # Source files
 set(hannac_HEADERS
     "include/FileParser.hpp"
+    "include/Lexer.hpp"
 )
 
 # Compile options
