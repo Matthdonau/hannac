@@ -1,9 +1,9 @@
-#include "gtest/gtest.h"
-
 #include "FileParser.hpp"
+#include "gtest/gtest.h"
 
 // stdlib includes
 #include <stdio.h>
+
 #include <filesystem>
 #include <string>
 
@@ -14,12 +14,11 @@ TEST(HFileParser, NoFile)
     {
         hannac::HFileParser("");
     }
-    catch(const std::exception& e)
+    catch (const std::exception &e)
     {
         exception = true;
     }
     EXPECT_EQ(exception, true);
-   
 }
 
 TEST(HFileParser, NonExistingFile)
@@ -29,7 +28,7 @@ TEST(HFileParser, NonExistingFile)
     {
         hannac::HFileParser("Foo.hanna");
     }
-    catch(const std::exception& e)
+    catch (const std::exception &e)
     {
         exception = true;
     }
@@ -43,7 +42,7 @@ TEST(HFileParser, WrongFileExtension)
     {
         hannac::HFileParser("Foo.hann");
     }
-    catch(const std::exception& e)
+    catch (const std::exception &e)
     {
         exception = true;
     }
@@ -56,18 +55,17 @@ TEST(HFileParser, Correct)
     try
     {
         std::filesystem::path path(__FILE__);
-        hannac::HFileParser Parser(path.parent_path().string() + "/" + "Bar.hanna");
+        hannac::HFileParser Parser(path.parent_path().string() + "/data/" + "Bar.hanna");
         std::string fileContent;
         char current;
-        while((current=Parser.read()) != EOF)
-            fileContent+=current;
+        while ((current = Parser.read()) != EOF)
+            fileContent += current;
 
         EXPECT_EQ(fileContent, std::string{"# Test\n# Test"});
     }
-    catch(const std::exception& e)
+    catch (const std::exception &e)
     {
         exception = true;
     }
     EXPECT_EQ(exception, false);
-
 }

@@ -2,9 +2,10 @@
 #define LEXER_HPP
 
 // stdlib includes
+#include <cctype>
 #include <cstdint>
 #include <variant>
-#include <cctype>
+#include <utility>
 
 // hannac includes
 #include "FileParser.hpp"
@@ -16,17 +17,17 @@ using HToken = std::variant<std::string, std::int64_t, char>;
 
 struct TokenError : public std::exception
 {
-    public:
-    TokenError(std::string const& message)
-    : mMessage{message}
-    {}
+  public:
+    TokenError(std::string const &message) : mMessage{message}
+    {
+    }
 
-    const char* what() const throw()
+    const char *what() const throw()
     {
         return mMessage.c_str();
     }
 
-    private:
+  private:
     std::string mMessage;
 };
 
@@ -42,15 +43,14 @@ enum class HTokenType : std::uint8_t
     // Primary.
     Identifier = 3,
     Number = 4,
-
 };
 
 struct HLexer final
 {
-    public:
-    HLexer(HFileParser&& parser)
-    : mParser(std::move(parser))
-    {}
+  public:
+    HLexer(HFileParser &&parser) : mParser(std::move(parser))
+    {
+    }
 
     std::pair<HTokenType, HToken> get_token()
     {
@@ -58,41 +58,41 @@ struct HLexer final
 
         // Skip ahead all whitespaces.
         char current;
-        while(std::isspace(current=mParser.read()))
+        while (std::isspace(current = mParser.read()))
             ;
 
         // Handle alphanumeric strings.
-        if(current == EOF)
+        if (current == EOF)
         {
             return {HTokenType::END, std::string{current}};
         }
-        else if(std::isalpha(current))
+        else if (std::isalpha(current))
         {
             std::string result{current};
-            while(std::isalnum(current=mParser.read()))
-                result+=current;
-            
-            if(result == "method")
-                return {HTokenType::Method,result};
+            while (std::isalnum(current = mParser.read()))
+                result += current;
+
+            if (result == "method")
+                return {HTokenType::Method, result};
             else
-                return {HTokenType::Identifier, result}; 
+                return {HTokenType::Identifier, result};
         }
-        else if(std::isdigit(current))
+        else if (std::isdigit(current))
         {
             std::string result{current};
-            while(std::isdigit(current=mParser.read()))
-                result+=current;
-            
+            while (std::isdigit(current = mParser.read()))
+                result += current;
+
             return {HTokenType::Number, static_cast<std::int64_t>(std::stoll(result))};
         }
-        else if(current == '#' ) // Skip comments
+        else if (current == '#') // Skip comments
         {
             do
                 current = mParser.read();
-            while(current != EOF && current != '\n' && current != '\r');
+            while (current != EOF && current != '\n' && current != '\r');
 
             // Skipped comment call this function once again.
-            return get_token(); 
+            return get_token();
         }
         else
         {
@@ -100,8 +100,8 @@ struct HLexer final
         }
     }
 
-    private:
+  private:
     HFileParser mParser;
 };
-}
+} // namespace hannac
 #endif // LEXER_HPP

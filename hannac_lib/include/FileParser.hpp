@@ -2,48 +2,47 @@
 #define FILEPARSER_HPP
 
 // stdlibincludes
-#include <string>
-#include <filesystem>
 #include <exception>
+#include <filesystem>
 #include <fstream>
 #include <stdio.h>
+#include <string>
 
-//DEBUG
+// DEBUG
 #include <iostream>
 
 namespace hannac
 {
 struct FileError : public std::exception
 {
-    public:
-    FileError(std::string const& message)
-    : mMessage{message}
-    {}
+  public:
+    FileError(std::string const &message) : mMessage{message}
+    {
+    }
 
-    const char* what() const throw()
+    const char *what() const throw()
     {
         return mMessage.c_str();
     }
 
-    private:
+  private:
     std::string mMessage;
 };
 
 struct HFileParser final
 {
-    public:
-    HFileParser(std::filesystem::path const& sourceFilePath)
-    : mSourceFilePath{sourceFilePath}
+  public:
+    HFileParser(std::filesystem::path const &sourceFilePath) : mSourceFilePath{sourceFilePath}
     {
-        auto const& extension = mSourceFilePath.extension();
-        
+        auto const &extension = mSourceFilePath.extension();
+
         // Check for correct file type.
-        if(extension != ".hanna")
+        if (extension != ".hanna")
             throw FileError{"Wrong file extension!"};
-        
+
         // Open file.
         mFile = std::ifstream(mSourceFilePath.string(), std::ios::binary);
-        if(!mFile.is_open())
+        if (!mFile.is_open())
             throw FileError{"Unable to open source file for reading."};
         mFile >> std::noskipws; // Don't skip whitespaces
     }
@@ -52,7 +51,7 @@ struct HFileParser final
     char read()
     {
         // If at end of file indicate so.
-        if(mFile.eof())
+        if (mFile.eof())
             return EOF;
 
         // Get next char,
@@ -60,13 +59,13 @@ struct HFileParser final
         mFile >> current;
 
         // We have to check again here for EOF.
-        if(mFile.eof())
+        if (mFile.eof())
             return EOF;
 
         return current;
     };
 
-    private:
+  private:
     std::filesystem::path mSourceFilePath;
     std::ifstream mFile;
 };

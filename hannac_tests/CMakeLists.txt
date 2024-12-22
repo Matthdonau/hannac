@@ -13,7 +13,8 @@ add_compile_options(-Wall -Wextra -Wpedantic -Werror)
 # Generate executable
 add_executable(hannac_tests)
 set(hannac_BENCHMARKS_SOURCES
-    "FileParser_tests.cpp"
+    "FileParser/FileParser_tests.cpp"
+    "Lexer/Lexer_tests.cpp"
 )
 target_sources(hannac_tests PRIVATE ${hannac_BENCHMARKS_SOURCES} )
 
