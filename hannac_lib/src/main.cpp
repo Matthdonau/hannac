@@ -24,11 +24,13 @@ int main(int argc, char *argv[])
         auto currentToken = lexer.get_token();
         while (currentToken.first != hannac::HTokenType::END)
         {
+            std::cout << "New Token:" << std::endl;
             if (currentToken.first == hannac::HTokenType::Identifier ||
                 currentToken.first == hannac::HTokenType::Method)
                 std::cout << std::get<std::string>(currentToken.second) << std::endl;
-            else if (currentToken.first == hannac::HTokenType::Number)
-                std::cout << std::get<std::int64_t>(currentToken.second) << std::endl;
+            else if (currentToken.first == hannac::HTokenType::NumArray)
+                for (auto const &el : std::get<hannac::NumArray>(currentToken.second))
+                    std::cout << el << std::endl;
 
             currentToken = lexer.get_token();
         }

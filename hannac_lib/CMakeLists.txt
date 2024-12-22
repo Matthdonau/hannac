@@ -11,6 +11,7 @@ set (CXX_STANDARD_REQUIRED ON)
 set(hannac_HEADERS
     "include/FileParser.hpp"
     "include/Lexer.hpp"
+    "include/AST.hpp"
 )
 
 # Compile options

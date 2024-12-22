@@ -41,11 +41,11 @@ TEST(HLexer, Numbers)
     }
 
     EXPECT_EQ(tokens.size(), 3);
-    std::vector<std::int64_t> expected{123, 456, 789};
+    std::vector<hannac::NumArray> expected{{123}, {456, 999}, {789}};
     int i = 0;
     for (auto const &token : tokens)
     {
-        EXPECT_EQ(expected[i], std::get<std::int64_t>(token));
+        EXPECT_EQ(expected[i], std::get<hannac::NumArray>(token));
         i++;
     }
 }

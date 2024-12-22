@@ -4,16 +4,16 @@
 // stdlib includes
 #include <cctype>
 #include <cstdint>
-#include <variant>
 #include <utility>
+#include <variant>
 
 // hannac includes
 #include "FileParser.hpp"
 
 namespace hannac
 {
-
-using HToken = std::variant<std::string, std::int64_t, char>;
+using NumArray = std::vector<std::int64_t>;
+using HToken = std::variant<std::string, NumArray, char>;
 
 struct TokenError : public std::exception
 {
@@ -42,7 +42,7 @@ enum class HTokenType : std::uint8_t
 
     // Primary.
     Identifier = 3,
-    Number = 4,
+    NumArray = 4,
 };
 
 struct HLexer final
@@ -79,11 +79,23 @@ struct HLexer final
         }
         else if (std::isdigit(current))
         {
-            std::string result{current};
-            while (std::isdigit(current = mParser.read()))
-                result += current;
+            NumArray result;
+            while (std::isdigit(current) || current == ' ')
+            {
+                std::string number{};
 
-            return {HTokenType::Number, static_cast<std::int64_t>(std::stoll(result))};
+                if (std::isspace(current))
+                    current = mParser.read();
+
+                while (std::isdigit(current))
+                {
+                    number += current;
+                    current = mParser.read();
+                }
+                result.push_back(static_cast<std::int64_t>(std::stoll(number)));
+            }
+
+            return {HTokenType::NumArray, result};
         }
         else if (current == '#') // Skip comments
         {
