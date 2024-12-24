@@ -4,8 +4,10 @@
 #include <stdio.h>
 
 // hannac includes
+#include "AST.hpp"
 #include "FileParser.hpp"
 #include "Lexer.hpp"
+#include "TokenParser.hpp"
 
 int main(int argc, char *argv[])
 {
@@ -20,20 +22,8 @@ int main(int argc, char *argv[])
     try
     {
         // Setup parsing of hanna file.
-        hannac::HLexer lexer{hannac::HFileParser{filename}};
-        auto currentToken = lexer.get_token();
-        while (currentToken.first != hannac::HTokenType::END)
-        {
-            std::cout << "New Token:" << std::endl;
-            if (currentToken.first == hannac::HTokenType::Identifier ||
-                currentToken.first == hannac::HTokenType::Method)
-                std::cout << std::get<std::string>(currentToken.second) << std::endl;
-            else if (currentToken.first == hannac::HTokenType::NumArray)
-                for (auto const &el : std::get<hannac::NumArray>(currentToken.second))
-                    std::cout << el << std::endl;
-
-            currentToken = lexer.get_token();
-        }
+        hannac::HTokenParser parser{hannac::HLexer{hannac::HFileParser{filename}}};
+        parser.run();
     }
     catch (const std::exception &excep)
     {

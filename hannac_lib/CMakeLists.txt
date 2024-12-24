@@ -12,11 +12,12 @@ set(hannac_HEADERS
     "include/FileParser.hpp"
     "include/Lexer.hpp"
     "include/AST.hpp"
+    "include/TokenParser.hpp"
 )
 
 # Compile options
 # -g to have symbols for performance profiling
-add_compile_options(-Wall -Wextra -Wpedantic -O2 -g3)
+add_compile_options(-Wall -Wextra -Wpedantic -O2 -g3 -Wno-unused-private-field)
 
 # Generate a library as well
 add_library(hannac_lib SHARED ${hannac_HEADERS}) 
