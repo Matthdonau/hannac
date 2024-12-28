@@ -3,6 +3,7 @@
 
 // stdlib includes
 #include <cstdint>
+#include <iostream>
 #include <memory>
 #include <vector>
 
@@ -20,6 +21,11 @@ struct Expression
     Expression &operator=(Expression const &) = default;
     Expression &operator=(Expression &&) = default;
     virtual ~Expression() = default;
+    virtual void print_args()
+    {
+        std::cout << "No args" << std::endl;
+        return;
+    }
 };
 
 /******************************************************************************
@@ -31,6 +37,14 @@ struct ArrayExpression final : public Expression
   public:
     explicit ArrayExpression(std::vector<std::int64_t> const &arr) : mArray{arr}
     {
+    }
+
+    virtual void print_args() override
+    {
+        for (auto const &el : mArray)
+            std::cout << "Element: " << el << " ";
+        std::cout << std::endl;
+        return;
     }
 
   private:
@@ -45,6 +59,13 @@ struct Variable final : public Expression
     {
     }
 
+    virtual void print_args() override
+    {
+        std::cout << mName;
+        std::cout << std::endl;
+
+        return;
+    }
   private:
     std::string mName;
 };
@@ -74,6 +95,16 @@ struct FunctionCall final : public Expression
     FunctionCall(std::string const &name, std::vector<std::unique_ptr<Expression>> args)
         : mName{name}, mArguments(std::move(args))
     {
+    }
+
+    virtual void print_args() override
+    {
+        for (auto const &arg : mArguments)
+        {
+            std::cout << "Call argument: ";
+            arg->print_args();
+        }
+        return;
     }
 
   private:
