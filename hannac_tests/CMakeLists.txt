@@ -15,14 +15,15 @@ add_executable(hannac_tests)
 set(hannac_BENCHMARKS_SOURCES
     "FileParser/FileParser_tests.cpp"
     "Lexer/Lexer_tests.cpp"
+    "Executor/Executor_tests.cpp"
 )
 target_sources(hannac_tests PRIVATE ${hannac_BENCHMARKS_SOURCES} )
 
 # hannac
 add_dependencies(hannac_tests hannac_lib)
 
-# Google benchmark
-set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+# Google tests.
+#set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
 include(FetchContent)
 FetchContent_Declare(
   gtest

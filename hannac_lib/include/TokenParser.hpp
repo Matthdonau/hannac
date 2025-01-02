@@ -9,6 +9,8 @@
 
 // hannac inlcudes
 #include "AST.hpp"
+#include "Executor.hpp"
+#include "GlobalSettings.hpp"
 #include "Lexer.hpp"
 
 namespace hannac
@@ -29,6 +31,24 @@ struct ParseError : public std::exception
     std::string mMessage;
 };
 
+/******************************************************************************
+ ********************************* HELPERS ************************************
+ *****************************************************************************/
+void print_method_declaration(std::shared_ptr<ast::FunctionDefinition> func)
+{
+    auto args = func->get_decl()->get_arguments();
+    for (size_t i = 0; i < args.size(); i++)
+    {
+        std::cout << args[i];
+        if (i < args.size() - 1)
+            std::cout << ",";
+        else
+            std::cout << ")" << std::endl;
+    }
+
+    return;
+}
+
 void print_token(HTokenRes &in)
 {
     switch (in.first)
@@ -42,18 +62,30 @@ void print_token(HTokenRes &in)
     case HTokenType::Method:
         std::cout << std::get<std::string>(in.second) << std::endl;
         break;
+    case HTokenType::Return:
+        std::cout << "return" << std::endl;
+        break;
     case HTokenType::END:
         std::cout << "End" << std::endl;
         break;
-    case HTokenType::NumArray:
-        for (auto const &el : std::get<NumArray>(in.second))
-            std::cout << el << std::endl;
+    case HTokenType::Number:
+        std::cout << std::get<std::int64_t>(in.second) << std::endl;
+        break;
+    case HTokenType::RealNumber:
+        std::cout << std::get<double>(in.second) << std::endl;
+        break;
+    case HTokenType::Main:
+        std::cout << "main" << std::endl;
         break;
     }
-
     return;
 }
 
+/******************************************************************************
+ ****************************** TOKEN PARSER **********************************
+ *****************************************************************************/
+// Uses HLexer to parse trough hanna file.
+// Returns a vector of ast::Expression which resemble the main method in correct order.
 struct HTokenParser final
 {
   public:
@@ -62,276 +94,287 @@ struct HTokenParser final
     }
 
     // Parsing main driver.
-    void run()
+    std::vector<std::unique_ptr<ast::Expression>> parse()
     {
-        mCurrentToken = mLexer.get_token();
-        while (mCurrentToken.first != HTokenType::END)
+        // 1) Parse all method definitions.
+        move_parser();
+        while (mCurrentToken.first != HTokenType::Main)
         {
-            std::cout << std::endl << "Next token: ";
-            print_token(mCurrentToken);
             switch (mCurrentToken.first)
             {
             case HTokenType::Method:
-                method();
+                produce_method();
                 break;
-            case HTokenType::Character:
-                break;
+            case HTokenType::END:
+                throw ParseError("No main method defined in program.");
             default:
-                top_level();
+                throw ParseError{"Unkown token."};
             }
         }
-        return;
+
+        // 2) Expect main.
+        if (mCurrentToken.first != HTokenType::Main)
+            throw ParseError{"Expected defintion of main."};
+        move_parser();
+
+        // 3) Parse main.
+        while (mCurrentToken.first != HTokenType::END)
+            queue_execution();
+
+        return std::move(mProgram);
     }
 
   private:
-    std::unique_ptr<ast::Expression> parse_primary()
+    // Move parser by one.
+    inline HTokenRes move_parser()
     {
-        switch (mCurrentToken.first)
-        {
-            std::cout << "Primary: ";
-            print_token(mCurrentToken);
-        case HTokenType::Identifier:
-            return produce_identifier_expression();
-        case HTokenType::NumArray:
-            return produce_array();
-        default:
-            // std::cout << "Unknown character while expecting expression." << std::endl;
-            return nullptr;
-        }
-    }
-
-    // Wrappers
-    void method()
-    {
-        if (auto func = produce_defintion())
-        {
-            std::cout << "Produced function definition for: " << func->get_name() << std::endl;
-        }
-        else
-        {
-            std::cout << "Error while parsing function." << std::endl;
-        }
-
-        return;
-    }
-
-    void top_level()
-    {
-        if (auto func = produce_top_level())
-        {
-            std::cout << "Produced top level expression." << std::endl;
-        }
-        else
-        {
-            std::cout << "Error while parsing top level expression." << std::endl;
-        }
-
-        return;
-    }
-
-    // Top level.
-    std::unique_ptr<ast::Expression> produce_top_level()
-    {
-        if (auto expr = produce_expression())
-        {
-            auto declaration = std::make_unique<ast::FunctionDeclaration>("", std::vector<std::string>());
-            return std::make_unique<ast::FunctionDefinition>(std::move(declaration), std::move(expr));
-        }
-        return nullptr;
-    }
-
-    // Arrays.
-    std::unique_ptr<ast::Expression> produce_array()
-    {
-        // Progress mCurrentToken.
-        auto arr = std::make_unique<ast::ArrayExpression>(std::get<NumArray>(mCurrentToken.second));
-        // Eat arr.
         mCurrentToken = mLexer.get_token();
-        return arr;
+
+        return mCurrentToken;
+    }
+
+    /******************************************************************************
+     ********************************* METHODS ************************************
+     *****************************************************************************/
+    // Hit method keyword.
+    // We now expect:
+    // a) a proper declaration of the method.
+    // b) a proper definition of the method.
+    void produce_method()
+    {
+        // 1) Parse declaration of the method.
+        // Expected is "method <METHOD_NAME>(<COMMA_SEPERATED_ARGUMENT_LIST>)"
+        // Eat method specifier.
+        move_parser();
+        auto declaration = produce_declaration();
+
+        // 2) Parse definition of the method which is basically an expression.
+        // First thing to expect is a "return" since currently only one line statement methods are supported.
+        if (mCurrentToken.first != HTokenType::Return)
+            throw ParseError{"Non returning method: " + declaration->get_name()};
+        move_parser();
+        auto definition = produce_expression();
+        auto func = std::make_shared<hannac::ast::FunctionDefinition>(std::move(declaration), std::move(definition));
+        if (HSettings::get_settings().get_verbose())
+        {
+            std::cout << "Produced function definition for: " << func->get_name() << "(";
+            print_method_declaration(func);
+        }
+
+        // 3) Put method in method buffer.
+        // We are only lazy generating code for function. That means we are only setting up the function AST node
+        // here and only generate the code for it if and when it is called.
+        if (ast::HMethodBuffer::get().find(func->get_name()) != ast::HMethodBuffer::get().end())
+        {
+            throw ParseError{"Redefinition of function " + func->get_name()};
+        }
+        ast::HMethodBuffer::get().insert({func->get_name(), func});
+
+        if (HSettings::get_settings().get_verbose())
+            std::cout << std::endl;
+
+        return;
     }
 
     // Declaration.
-    std::unique_ptr<ast::FunctionDeclaration> produce_declaration()
+    std::shared_ptr<ast::FunctionDeclaration> produce_declaration()
     {
+        // 1) Expect method name as very first thing after "method" keyword.
         if (mCurrentToken.first != HTokenType::Identifier)
-        {
-            std::cout << "No function name in method declaration." << std::endl;
-            return nullptr;
-        }
-        // Get function name and move on to declaration.
+            throw ParseError{"Expected method name."};
+        // Store method name and move on to declaration.
         std::string methodName = std::get<std::string>(mCurrentToken.second);
-        std::cout << "Parsing function: " << methodName << std::endl;
 
-        // Next we expect opening brace "(".
-        mCurrentToken = mLexer.get_token();
-        if (mCurrentToken.first == HTokenType::Character)
-        {
-            char curr = std::get<char>(mCurrentToken.second);
-            if (curr != '(')
-            {
-                std::cout << "Expected '(' in method declaration,"
-                          << "but got: " << std::get<char>(mCurrentToken.second) << std::endl;
-                return nullptr;
-            }
-        }
-        else
-        {
-            std::cout << "Expected '(' in method declaration." << std::endl;
-            return nullptr;
-        }
+        // 2) Next we expect opening brace "(" followed by 0-N arguments, followed by ")".
+        move_parser();
+        if (mCurrentToken.first != HTokenType::Character || std::get<char>(mCurrentToken.second) != '(')
+            throw ParseError{"Expected '(' in method declaration of: " + methodName};
 
-        // Now we expect the function arguments.
+        // 3) Now we expect the function arguments.
+        // Until we hit ")" we expect only Identifiers.
         std::vector<std::string> args;
-        while ((mCurrentToken = mLexer.get_token()).first == HTokenType::Identifier)
+        while ((move_parser()).first == HTokenType::Identifier)
         {
-            std::cout << "Adding function parameter: " << std::get<std::string>(mCurrentToken.second) << std::endl;
             args.push_back(std::get<std::string>(mCurrentToken.second));
 
             // Skip ','
-            mCurrentToken = mLexer.get_token();
+            move_parser();
             if (mCurrentToken.first == HTokenType::Character && std::get<char>(mCurrentToken.second) != ',')
             {
                 break;
             }
         }
 
-        // Now expect ')'
+        // 4) Now expect ')'
         if (mCurrentToken.first == HTokenType::Character)
         {
-            char curr = std::get<char>(mCurrentToken.second);
-            if (curr != ')')
-            {
-                std::cout << "Expected ')' in method declaration" << std::endl;
-                return nullptr;
-            }
+            if (char curr = std::get<char>(mCurrentToken.second) != ')')
+                throw ParseError{"Expected ')' in method declaration of: " + methodName};
         }
         else
         {
-            std::cout << "Expected ')' in method declaration" << std::endl;
-            return nullptr;
+            throw ParseError{"Expected ')' or variable in method declaration of: " + methodName};
         }
-
         // Eat ')'
-        mCurrentToken = mLexer.get_token();
+        move_parser();
 
-        return std::make_unique<ast::FunctionDeclaration>(methodName, std::move(args));
+        return std::make_shared<ast::FunctionDeclaration>(methodName, std::move(args));
     }
 
-    // Defitinion.
-    std::unique_ptr<ast::FunctionDefinition> produce_defintion()
+    /******************************************************************************
+     ******************************* NUMS/VARS ************************************
+     *****************************************************************************/
+    std::unique_ptr<ast::Expression> produce_num()
     {
-        // Eat method specifier.
-        mCurrentToken = mLexer.get_token();
+        std::unique_ptr<ast::Expression> num;
+        // Create number AST.
+        if (mCurrentToken.first == HTokenType::Number)
+            num = std::make_unique<ast::Number>(std::get<std::int64_t>(mCurrentToken.second));
+        else
+            num = std::make_unique<ast::RealNumber>(std::get<double>(mCurrentToken.second));
+        // Eat number and progress mCurrentToken.
+        move_parser();
 
-        // Get funcion definition.
-        auto declaration = produce_declaration();
-        if (declaration == nullptr)
-        {
-            std::cout << "Error parsing declaration of method: " << std::endl;
-            return nullptr;
-        }
+        return num;
+    }
 
-        auto definition = produce_expression();
-        if (definition == nullptr)
-        {
-            // Wrong things happened.
-            std::cout << "Error parsing definition of method: " << declaration->get_name() << std::endl;
-            return nullptr;
-        }
-
-        return std::make_unique<ast::FunctionDefinition>(std::move(declaration), std::move(definition));
+    std::unique_ptr<ast::Expression> produce_var(std::string name)
+    {
+        return std::make_unique<ast::Variable>(name);
     }
 
     // Identifiers.
     std::unique_ptr<ast::Expression> produce_identifier_expression()
     {
-        // Passed token is Identifier string.
+        // 1) Get name of identifier.
         auto const name = std::get<std::string>(mCurrentToken.second);
-        std::vector<std::unique_ptr<ast::Expression>> arguments;
 
-        // Get next token.
-        mCurrentToken = mLexer.get_token();
+        // 2) Differentiate between variable and method call.
+        move_parser();
         if (mCurrentToken.first != HTokenType::Character || std::get<char>(mCurrentToken.second) != '(')
         {
             // Variable reference.
-            return std::make_unique<ast::Variable>(name);
+            return produce_var(name);
         }
-        else
+        else // MethodCall
         {
+            std::vector<std::unique_ptr<ast::Expression>> arguments;
+
             // Expression.
             // Eat '('
-            mCurrentToken = mLexer.get_token();
+            move_parser();
             HTokenType type = mCurrentToken.first;
             while (mCurrentToken.first != HTokenType::END)
             {
-                if (auto argument = produce_expression())
+                if (type == HTokenType::Character)
                 {
+                    auto symbol = std::get<char>(mCurrentToken.second);
+                    move_parser();
+                    type = mCurrentToken.first;
+                    if (symbol == ')')
+                        break;
+
+                    if (symbol == ',')
+                        continue;
+                }
+
+                // Add argument.
+                if (auto argument = produce_expression())
                     // Argument.
                     arguments.push_back(std::move(argument));
-                }
                 else
                     return nullptr;
 
                 type = mCurrentToken.first;
-                if (type == HTokenType::Character && std::get<char>(mCurrentToken.second) == ')')
-                {
-                    break;
-                }
-                else if (type == HTokenType::Character && std::get<char>(mCurrentToken.second) == ',')
-                {
-                    // Skip argument seperator
-                    mCurrentToken = mLexer.get_token();
-                    continue;
-                }
-
-                mCurrentToken = mLexer.get_token();
-                type = mCurrentToken.first;
             }
-
-            // Eat ')'
-            mCurrentToken = mLexer.get_token();
+            return std::make_unique<ast::MethodCall>(name, std::move(arguments));
         }
-        auto call = std::make_unique<ast::FunctionCall>(name, std::move(arguments));
-        call->print_args();
-        return call;
     }
 
-    // Expression stuff.
-    int get_op_precedence(char op)
+    /******************************************************************************
+     ******************************** EXECUTION ************************************
+     *****************************************************************************/
+    void queue_execution()
     {
-        if (!isascii(op))
-            return -1;
+        // Produce expression.
+        // Will result in either a ast::MethodCall or ast::Binary.
+        auto expr = produce_expression();
 
-        // Check if defined in valid binary operators.
-        if (mOpPrecedence.find(op) == mOpPrecedence.end())
-            return -1;
+        // Add to program to be executed.
+        mProgram.push_back(std::move(expr));
 
-        return mOpPrecedence[op];
+        return;
+    }
+
+    std::unique_ptr<ast::Expression> produce_expression()
+    {
+        // We expect some expression: This could be:
+        // 1) a method call.
+        // 2) a binary expression.
+        auto first = parse_statement();
+
+        // In case of a function call return the method call.
+        if (first->get_type() == ast::ASTType::MethodCall)
+            return first;
+        else if (mCurrentToken.first == HTokenType::Character &&
+                 mOpPrecedence.find(std::get<char>(mCurrentToken.second)) == mOpPrecedence.end())
+            return first;
+        else
+            // We got a binary expression.
+            // Handle this by recursively calling produce_expression.
+            return parse_binary_op_rhs(0, std::move(first));
+    }
+
+    std::unique_ptr<ast::Expression> parse_statement()
+    {
+        switch (mCurrentToken.first)
+        {
+        case HTokenType::Identifier:
+            return produce_identifier_expression();
+        case HTokenType::Number:
+        case HTokenType::RealNumber:
+            return produce_num();
+        default:
+            throw ParseError{"Unknown character while expecting expression statement."};
+        }
     }
 
     std::unique_ptr<ast::Expression> parse_binary_op_rhs(int expr_precedence, std::unique_ptr<ast::Expression> LHS)
     {
+        // Parse trough expression until we find no RHS anymore.
         while (true)
         {
+            // 1) Get precedence of current binary operator.
             int prec = -1;
             if (mCurrentToken.first == HTokenType::Character)
-                prec = get_op_precedence(std::get<char>(mCurrentToken.second));
-
+            {
+                char op = std::get<char>(mCurrentToken.second);
+                if (mOpPrecedence.find(op) != mOpPrecedence.end())
+                    prec = mOpPrecedence[op];
+            }
+            // If not binary operator or operator with less precedence, return.
             if (prec < expr_precedence)
                 return LHS;
 
             // Save binary operator.
             char binOp = std::get<char>(mCurrentToken.second);
-            mCurrentToken = mLexer.get_token();
 
-            auto RHS = parse_primary();
+            // 2) Parse right hand side.
+            move_parser();
+            auto RHS = parse_statement();
             if (!RHS)
                 return nullptr;
 
+            // 3) Get precedence of right hand side.
             int nextPrec = -1;
             if (mCurrentToken.first == HTokenType::Character)
-                nextPrec = get_op_precedence(std::get<char>(mCurrentToken.second));
+            {
+                char op = std::get<char>(mCurrentToken.second);
+                if (mOpPrecedence.find(op) != mOpPrecedence.end())
+                    nextPrec = mOpPrecedence[op];
+            }
 
+            // 4) Decide which way to go.
             if (prec < nextPrec)
             {
                 RHS = parse_binary_op_rhs(prec + 1, std::move(RHS));
@@ -344,18 +387,10 @@ struct HTokenParser final
         }
     }
 
-    std::unique_ptr<ast::Expression> produce_expression()
-    {
-        auto LHS = parse_primary();
-        if (!LHS)
-            return nullptr;
-
-        return parse_binary_op_rhs(0, std::move(LHS));
-    }
-
     HLexer mLexer;
     HTokenRes mCurrentToken;
-    std::map<char, int> mOpPrecedence{{'<', 10}, {'+', 20}, {'-', 20}, {'*', 40}};
+    std::map<char, int> mOpPrecedence{{'+', 20}, {'-', 20}, {'*', 40}, {'/', 40}};
+    std::vector<std::unique_ptr<ast::Expression>> mProgram;
 };
 } // namespace hannac
 #endif // TOKENPARSER_HPP

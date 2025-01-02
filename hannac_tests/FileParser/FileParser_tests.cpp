@@ -2,8 +2,6 @@
 #include "gtest/gtest.h"
 
 // stdlib includes
-#include <stdio.h>
-
 #include <filesystem>
 #include <string>
 

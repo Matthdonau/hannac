@@ -1,0 +1,3 @@
+This project uses parts of LLVMs Kaleidoscope example language frontend.
+It uses and adapts various files of llvm/examples/Kaleidoscope.
+https://github.com/llvm/llvm-project/tree/main/llvm/examples/Kaleidoscope

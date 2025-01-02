@@ -1,0 +1,6 @@
+method addBoth(a,b)
+    return a+b
+
+main
+    addBoth(1, 4)
+    addBoth(3.7, 17.8)

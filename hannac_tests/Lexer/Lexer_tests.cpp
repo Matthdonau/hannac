@@ -27,10 +27,34 @@ TEST(HLexer, Comments)
     EXPECT_EQ(tokens.size(), 0);
 }
 
-TEST(HLexer, Numbers)
+TEST(HLexer, IntNumbers)
 {
     std::filesystem::path path(__FILE__);
-    hannac::HLexer lexer{hannac::HFileParser{path.parent_path().string() + "/data/" + "numbers.hanna"}};
+    hannac::HLexer lexer{hannac::HFileParser{path.parent_path().string() + "/data/" + "int_numbers.hanna"}};
+
+    std::vector<hannac::HToken> tokens;
+
+    std::pair<hannac::HTokenType, hannac::HToken> current{};
+    while ((current = lexer.get_token()).first != hannac::HTokenType::END)
+    {
+        EXPECT_EQ(hannac::HTokenType::Number, current.first);
+        tokens.push_back(current.second);
+    }
+
+    EXPECT_EQ(tokens.size(), 4);
+    std::vector<std::int64_t> expected{123, 456, 999, 789};
+    int i = 0;
+    for (auto const &token : tokens)
+    {
+        EXPECT_EQ(expected[i], std::get<std::int64_t>(token));
+        i++;
+    }
+}
+
+TEST(HLexer, RealNumbers)
+{
+    std::filesystem::path path(__FILE__);
+    hannac::HLexer lexer{hannac::HFileParser{path.parent_path().string() + "/data/" + "real_numbers.hanna"}};
 
     std::vector<hannac::HToken> tokens;
 
@@ -40,14 +64,31 @@ TEST(HLexer, Numbers)
         tokens.push_back(current.second);
     }
 
-    EXPECT_EQ(tokens.size(), 3);
-    std::vector<hannac::NumArray> expected{{123}, {456, 999}, {789}};
+    EXPECT_EQ(tokens.size(), 4);
+    std::vector<double> expected{1.0, 99.9, 999999999.9, 1234.5678};
     int i = 0;
     for (auto const &token : tokens)
     {
-        EXPECT_EQ(expected[i], std::get<hannac::NumArray>(token));
+        EXPECT_EQ(expected[i], std::get<double>(token));
         i++;
     }
+}
+
+TEST(HLexer, RealNumbersIncorrect)
+{
+    std::filesystem::path path(__FILE__);
+    hannac::HLexer lexer{hannac::HFileParser{path.parent_path().string() + "/data/" + "real_numbers_incorrect.hanna"}};
+
+    bool except{false};
+    try
+    {
+        lexer.get_token();
+    }
+    catch (const std::exception &e)
+    {
+        except = true;
+    }
+    ASSERT_EQ(true, except);
 }
 
 TEST(HLexer, Method)

@@ -1,0 +1,6 @@
+method addInt(a,b)
+    return a+b
+
+main
+    addInt(1, 4)
+    addInt(150, 10000)

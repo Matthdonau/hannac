@@ -1,0 +1,6 @@
+method addReal(a,b)
+    return a+b
+
+main
+    addReal(0.25, 1.25)
+    addReal(1.0, 0.15)

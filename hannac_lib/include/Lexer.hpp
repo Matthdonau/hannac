@@ -16,8 +16,7 @@ namespace hannac
 enum class HTokenType : std::uint8_t;
 
 // Convenience names.
-using NumArray = std::vector<std::int64_t>;
-using HToken = std::variant<std::string, NumArray, char>;
+using HToken = std::variant<std::string, std::int64_t, char, double>;
 using HTokenRes = std::pair<HTokenType, HToken>;
 
 struct TokenError : public std::exception
@@ -44,10 +43,15 @@ enum class HTokenType : std::uint8_t
 
     // Functional.
     Method = 2,
+    Return = 3,
 
     // Primary.
-    Identifier = 3,
-    NumArray = 4,
+    Identifier = 4,
+    Number = 5,
+    RealNumber = 6,
+
+    // Main.
+    Main = 7
 };
 
 struct HLexer final
@@ -82,28 +86,34 @@ struct HLexer final
 
             if (result == "method")
                 return {HTokenType::Method, result};
+            else if (result == "main")
+                return {HTokenType::Main, result};
+            else if (result == "return")
+                return {HTokenType::Return, result};
             else
                 return {HTokenType::Identifier, result};
         }
         else if (std::isdigit(mCurrent))
         {
-            NumArray result;
-            while (std::isdigit(mCurrent) || mCurrent == ' ')
+            bool wasReal = false;
+            std::string number{};
+            while (std::isdigit(mCurrent) || mCurrent == '.')
             {
-                std::string number{};
-
-                if (std::isspace(mCurrent))
-                    mCurrent = mParser.read();
-
-                while (std::isdigit(mCurrent))
+                if (mCurrent == '.')
                 {
-                    number += mCurrent;
-                    mCurrent = mParser.read();
+                    if (wasReal)
+                        throw TokenError{"Wrong real number format."};
+                    wasReal = true;
                 }
-                result.push_back(static_cast<std::int64_t>(std::stoll(number)));
+
+                number += mCurrent;
+                mCurrent = mParser.read();
             }
 
-            return {HTokenType::NumArray, result};
+            if (wasReal)
+                return {HTokenType::RealNumber, std::stod(number)};
+
+            return {HTokenType::Number, std::stoll(number)};
         }
         else if (mCurrent == '#') // Skip comments
         {
