@@ -235,7 +235,9 @@ struct Binary final : public Expression
             return nullptr;
 
         // Determine from lhs and rhs which data type to generate code for.
-        auto l = HNamesMap::get().find(mLHS->get_name());
+        auto lType = left->getType()->getTypeID();
+        auto rType = right->getType()->getTypeID();
+        /*auto l = HNamesMap::get().find(mLHS->get_name());
         size_t lType = 0;
         if (l != HNamesMap::get().end())
             lType = l->second->getType()->getTypeID();
@@ -243,7 +245,7 @@ struct Binary final : public Expression
         auto r = HNamesMap::get().find(mLHS->get_name());
         size_t rType = 0;
         if (r != HNamesMap::get().end())
-            rType = r->second->getType()->getTypeID();
+            rType = r->second->getType()->getTypeID();*/
 
         mReturnType = (lType == llvm::Type::DoubleTyID || rType == llvm::Type::DoubleTyID) ? ASTType::RealNumber
                                                                                            : ASTType::Number;
@@ -319,34 +321,21 @@ struct FunctionDeclaration final : public Expression
 
         // Create types for input arguments.
         size_t i = 0;
-        bool wasDouble = false;
         for (auto const &el : mArgTypes)
         {
             if (el == ASTType::RealNumber)
-            {
                 types.push_back(llvm::Type::getDoubleTy(*HContextSingelton::get_context().mContext));
-                wasDouble = true;
-            }
             else
-            {
                 types.push_back(llvm::Type::getInt64Ty(*HContextSingelton::get_context().mContext));
-            }
         }
 
         // Create function prototype.
-        // If there was at least one double in the argument list return type is double.
-        if (wasDouble)
-        {
+        if (mReturnType == ASTType::RealNumber)
             proto = llvm::FunctionType::get(llvm::Type::getDoubleTy(*HContextSingelton::get_context().mContext), types,
                                             false);
-            mReturnType = ASTType::RealNumber;
-        }
         else
-        {
             proto = llvm::FunctionType::get(llvm::Type::getInt64Ty(*HContextSingelton::get_context().mContext), types,
                                             false);
-            mReturnType = ASTType::Number;
-        }
 
         // Create func.
         llvm::Function *func =
@@ -369,6 +358,11 @@ struct FunctionDeclaration final : public Expression
     void set_arg_types(std::vector<ASTType> argTypes) noexcept
     {
         mArgTypes = argTypes;
+    }
+
+    void set_return_type(ASTType rType) noexcept
+    {
+        mReturnType = rType;
     }
 
     std::vector<std::string> get_arguments()
@@ -441,7 +435,6 @@ struct MethodCall final : public Expression
             args.push_back(el->codegen());
         }
 
-        // Incorrect. Wee need to look at return type of function.
         mReturnType =
             HFuncDeclarations::get().find(produce_func_name(mName, get_argtypes()))->second->get_return_type();
 
@@ -514,10 +507,41 @@ struct FunctionDefinition final : public Expression
     // Codegen.
     virtual llvm::Function *codegen() final
     {
+        // For the scope of this method the arguments this function is called with need to exist.
+
         // In case expression to evaluate for this function is itself a function call,
         // generate this called function only now.
+        llvm::Value *ret = nullptr;
+        std::vector<std::shared_ptr<llvm::Argument>> vec;
+        std::shared_ptr<llvm::Argument> llvmVal;
         if (mFuncBody->get_type() == ASTType::MethodCall)
+        {
             gen_buffered_func();
+        }
+        else // Expression
+        {
+            HNamesMap::get().clear();
+            size_t i = 0;
+            for (auto const &el : mDeclaration->get_arguments())
+            {
+
+                vec.push_back(llvmVal);
+                if (mArgTypes[i++] == ASTType::RealNumber)
+                    llvmVal = std::make_shared<llvm::Argument>(
+                        llvm::Type::getDoubleTy(*HContextSingelton::get_context().mContext), el);
+                else
+                    llvmVal = std::make_shared<llvm::Argument>(
+                        llvm::Type::getInt64Ty(*HContextSingelton::get_context().mContext), el);
+
+                HNamesMap::get()[std::string(el)] = llvmVal.get();
+            }
+            std::cout << "HERE" << std::endl;
+            // Generate expression in order to know return type.
+            ret = mFuncBody->codegen();
+            // Set return type.
+            mDeclaration->set_return_type(mFuncBody->get_return_type());
+            mReturnType = mFuncBody->get_return_type();
+        }
 
         // Produce function declaration.
         std::string name = get_name();
@@ -535,7 +559,9 @@ struct FunctionDefinition final : public Expression
         for (auto &arg : func->args())
             HNamesMap::get()[std::string(arg.getName())] = &arg;
 
-        if (llvm::Value *ret = mFuncBody->codegen())
+            ret = mFuncBody->codegen();
+
+        if (ret)
         {
             // Finish off the function.
             HBuilderSingelton::get_builder().mBuilder->CreateRet(ret);
@@ -546,6 +572,7 @@ struct FunctionDefinition final : public Expression
             FPM fpm;
             fpm.mFuncPassManager->run(*func, *fpm.mFuncAnalysisManager);
 
+            mDeclaration->set_return_type(mFuncBody->get_return_type());
             mReturnType = mFuncBody->get_return_type();
 
             return func;
@@ -570,6 +597,12 @@ struct FunctionDefinition final : public Expression
     virtual ASTType get_return_type() const noexcept override
     {
         return mReturnType;
+    }
+
+    void set_return_type(ASTType type) noexcept
+    {
+        mReturnType = type;
+        return;
     }
 
   private:
@@ -617,17 +650,26 @@ struct FunctionDefinition final : public Expression
             }
 
             funcAst->second->set_arg_types(args);
+            funcCall->set_arg_types(args);
             // Only generate function if not already happened in previous call to it.
             auto name = mFuncBody->get_name();
-            funcCall->set_arg_types(args);
-            if (HFuncDeclarations::get().find(produce_func_name(name, args)) == HFuncDeclarations::get().end())
+            auto decl = HFuncDeclarations::get().find(produce_func_name(name, args));
+            if (decl == HFuncDeclarations::get().end())
             {
                 auto code = funcAst->second->codegen();
+                mDeclaration->set_return_type(funcAst->second->get_return_type());
+                mReturnType = funcAst->second->get_return_type();
                 if (HSettings::get_settings().get_verbose())
                     code->print(llvm::outs());
 
                 // Generate module for function, put code in and open new module.
                 gen_module_and_reset();
+            }
+            else
+            {
+                std::cout << "HERE2" << std::endl;
+                mDeclaration->set_return_type(decl->second->get_return_type());
+                mReturnType = decl->second->get_return_type();
             }
         }
         else
