@@ -93,8 +93,6 @@ class HFuncDeclarations final
 
     HFuncDeclarations(const HFuncDeclarations &) = delete;
     HFuncDeclarations &operator=(const HFuncDeclarations &) = delete;
-    // ToDo
-    // Needs to be more than string as identifier.
     std::map<std::string, std::shared_ptr<hannac::ast::FunctionDeclaration>> mFunctions;
 
   private:
@@ -127,9 +125,9 @@ struct Expression
         return mType;
     }
 
-    virtual bool get_is_real() const noexcept
+    virtual ASTType get_return_type() const noexcept
     {
-        return false;
+        return ASTType::Number;
     }
 
   private:
@@ -220,7 +218,8 @@ struct Binary final : public Expression
 {
   public:
     Binary(char op, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right)
-        : Expression{ASTType::Binary}, mOperator{op}, mLHS(std::move(left)), mRHS(std::move(right))
+        : Expression{ASTType::Binary}, mOperator{op}, mLHS(std::move(left)), mRHS(std::move(right)),
+          mReturnType{ASTType::Number}
     {
     }
 
@@ -246,27 +245,28 @@ struct Binary final : public Expression
         if (r != HNamesMap::get().end())
             rType = r->second->getType()->getTypeID();
 
-        is_real = (lType == llvm::Type::DoubleTyID || rType == llvm::Type::DoubleTyID);
+        mReturnType = (lType == llvm::Type::DoubleTyID || rType == llvm::Type::DoubleTyID) ? ASTType::RealNumber
+                                                                                           : ASTType::Number;
 
         switch (mOperator)
         {
         case '+':
-            if (is_real)
+            if (mReturnType == ASTType::RealNumber)
                 return HBuilderSingelton::get_builder().mBuilder->CreateFAdd(left, right, "dadd");
             else
                 return HBuilderSingelton::get_builder().mBuilder->CreateAdd(left, right, "add");
         case '-':
-            if (is_real)
+            if (mReturnType == ASTType::RealNumber)
                 return HBuilderSingelton::get_builder().mBuilder->CreateFSub(left, right, "dsub");
             else
                 return HBuilderSingelton::get_builder().mBuilder->CreateSub(left, right, "sub");
         case '*':
-            if (is_real)
+            if (mReturnType == ASTType::RealNumber)
                 return HBuilderSingelton::get_builder().mBuilder->CreateFMul(left, right, "dmull");
             else
                 return HBuilderSingelton::get_builder().mBuilder->CreateMul(left, right, "mull");
         case '/':
-            if (is_real)
+            if (mReturnType == ASTType::RealNumber)
                 return HBuilderSingelton::get_builder().mBuilder->CreateFDiv(left, right, "ddiv");
             else
                 return HBuilderSingelton::get_builder().mBuilder->CreateSDiv(left, right, "div");
@@ -281,16 +281,16 @@ struct Binary final : public Expression
         return {mOperator};
     }
 
-    virtual bool get_is_real() const noexcept override
+    virtual ASTType get_return_type() const noexcept override
     {
-        return is_real;
+        return mReturnType;
     }
 
   private:
     char mOperator;                   // binary operator.
     std::unique_ptr<Expression> mLHS; // Left argument.
     std::unique_ptr<Expression> mRHS; // Right argument.
-    bool is_real = false;
+    ASTType mReturnType;
 };
 
 /******************************************************************************
@@ -301,7 +301,7 @@ struct FunctionDeclaration final : public Expression
 {
   public:
     FunctionDeclaration(std::string const &name, std::vector<std::string> const &args)
-        : Expression{ASTType::FuncDecl}, mName{name}, mArguments{args}
+        : Expression{ASTType::FuncDecl}, mName{name}, mArguments{args}, mReturnType{ASTType::Number}
     {
     }
 
@@ -336,11 +336,17 @@ struct FunctionDeclaration final : public Expression
         // Create function prototype.
         // If there was at least one double in the argument list return type is double.
         if (wasDouble)
+        {
             proto = llvm::FunctionType::get(llvm::Type::getDoubleTy(*HContextSingelton::get_context().mContext), types,
                                             false);
+            mReturnType = ASTType::RealNumber;
+        }
         else
+        {
             proto = llvm::FunctionType::get(llvm::Type::getInt64Ty(*HContextSingelton::get_context().mContext), types,
                                             false);
+            mReturnType = ASTType::Number;
+        }
 
         // Create func.
         llvm::Function *func =
@@ -370,10 +376,17 @@ struct FunctionDeclaration final : public Expression
         return mArguments;
     }
 
+    virtual ASTType get_return_type() const noexcept override
+    {
+        return mReturnType;
+    }
+
   private:
     std::string mName;
     std::vector<std::string> mArguments;
+    // Updated once we know.
     std::vector<ASTType> mArgTypes;
+    ASTType mReturnType;
 };
 
 llvm::Function *gen_func_decl(std::string &name, std::vector<ASTType> argTypes)
@@ -398,7 +411,7 @@ struct MethodCall final : public Expression
 {
   public:
     MethodCall(std::string const &name, std::vector<std::unique_ptr<Expression>> args)
-        : Expression{ASTType::MethodCall}, mName{name}, mArguments(std::move(args))
+        : Expression{ASTType::MethodCall}, mName{name}, mArguments(std::move(args)), mReturnType{ASTType::Number}
     {
     }
 
@@ -429,10 +442,8 @@ struct MethodCall final : public Expression
         }
 
         // Incorrect. Wee need to look at return type of function.
-        auto argTypes = get_argtypes();
-        for (auto const &el : argTypes)
-            if (el == ASTType::RealNumber)
-                is_real = true;
+        mReturnType =
+            HFuncDeclarations::get().find(produce_func_name(mName, get_argtypes()))->second->get_return_type();
 
         return HBuilderSingelton::get_builder().mBuilder->CreateCall(func, args, "funccall");
     }
@@ -474,16 +485,16 @@ struct MethodCall final : public Expression
         return names;
     }
 
-    virtual bool get_is_real() const noexcept override
+    virtual ASTType get_return_type() const noexcept override
     {
-        return is_real;
+        return mReturnType;
     }
 
   private:
     std::string mName;
     std::vector<std::unique_ptr<Expression>> mArguments;
     std::vector<ASTType> mArgTypes;
-    bool is_real = false;
+    ASTType mReturnType;
 };
 
 // Function definition.
@@ -491,7 +502,7 @@ struct FunctionDefinition final : public Expression
 {
   public:
     FunctionDefinition(std::shared_ptr<FunctionDeclaration> def, std::unique_ptr<Expression> expr)
-        : Expression{ASTType::FuncDef}, mDeclaration(def), mFuncBody(std::move(expr))
+        : Expression{ASTType::FuncDef}, mDeclaration(def), mFuncBody(std::move(expr)), mReturnType{ASTType::Number}
     {
     }
 
@@ -535,7 +546,7 @@ struct FunctionDefinition final : public Expression
             FPM fpm;
             fpm.mFuncPassManager->run(*func, *fpm.mFuncAnalysisManager);
 
-            is_real = mFuncBody->get_is_real();
+            mReturnType = mFuncBody->get_return_type();
 
             return func;
         }
@@ -556,9 +567,9 @@ struct FunctionDefinition final : public Expression
         return mDeclaration;
     }
 
-    virtual bool get_is_real() const noexcept override
+    virtual ASTType get_return_type() const noexcept override
     {
-        return is_real;
+        return mReturnType;
     }
 
   private:
@@ -630,7 +641,7 @@ struct FunctionDefinition final : public Expression
     std::shared_ptr<FunctionDeclaration> mDeclaration;
     std::unique_ptr<Expression> mFuncBody;
     std::vector<ASTType> mArgTypes;
-    bool is_real = false;
+    ASTType mReturnType;
 };
 } // namespace ast
 } // namespace hannac

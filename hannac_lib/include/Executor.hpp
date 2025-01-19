@@ -125,7 +125,7 @@ class HExecutor final
 
         // Generate module, add function and reset module.
         static llvm::ExitOnError err;
-        if (method->get_is_real())
+        if (method->get_return_type() == ast::ASTType::RealNumber)
         {
             // works because double and int64_t are 64Bit.
             double (*call)() = ExprSymbol.getAddress().toPtr<double (*)()>();
