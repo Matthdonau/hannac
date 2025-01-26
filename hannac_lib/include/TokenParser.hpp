@@ -34,7 +34,7 @@ struct ParseError : public std::exception
 /******************************************************************************
  ********************************* HELPERS ************************************
  *****************************************************************************/
-void print_method_declaration(std::shared_ptr<ast::FunctionDefinition> func)
+inline void print_method_declaration(std::shared_ptr<ast::FunctionDefinition> func)
 {
     auto args = func->get_decl()->get_arguments();
     for (size_t i = 0; i < args.size(); i++)
@@ -49,7 +49,7 @@ void print_method_declaration(std::shared_ptr<ast::FunctionDefinition> func)
     return;
 }
 
-void print_token(HTokenRes &in)
+inline void print_token(HTokenRes &in)
 {
     switch (in.first)
     {

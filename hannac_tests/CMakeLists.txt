@@ -16,6 +16,7 @@ set(hannac_BENCHMARKS_SOURCES
     "FileParser/FileParser_tests.cpp"
     "Lexer/Lexer_tests.cpp"
     "Executor/Executor_tests.cpp"
+    "TokenParser/TokenParser_tests.cpp"
 )
 target_sources(hannac_tests PRIVATE ${hannac_BENCHMARKS_SOURCES} )
 

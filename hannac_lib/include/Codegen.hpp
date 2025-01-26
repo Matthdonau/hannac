@@ -162,7 +162,7 @@ class HNamesMap final
     HNamesMap() = default;
 };
 
-void gen_module_and_reset(llvm::orc::ResourceTrackerSP rt = nullptr)
+inline void gen_module_and_reset(llvm::orc::ResourceTrackerSP rt = nullptr)
 {
     // Put current state in JIT module, close it and open a new one for next function.
     static llvm::ExitOnError err;

@@ -1,0 +1,12 @@
+method DivOrder(a,b)
+    return a/b
+
+method CallDivOrder(a,b)
+     return DivOrder(b,a)
+
+main
+    DivOrder(10, 5)
+    CallDivOrder(10, 5)
+    DivOrder(5, 10)
+    CallDivOrder(5, 10)
+

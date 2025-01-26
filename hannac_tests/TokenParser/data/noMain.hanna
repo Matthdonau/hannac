@@ -1,0 +1,2 @@
+method NoMain(a,b)
+    return a-b

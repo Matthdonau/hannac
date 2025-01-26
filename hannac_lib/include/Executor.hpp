@@ -56,7 +56,7 @@ struct HProgramState
  ********************************* HELPERS ************************************
  *****************************************************************************/
 
-void print_result(HResult &res)
+inline void print_result(HResult &res)
 {
     switch (res.get_type())
     {

@@ -1,0 +1,15 @@
+method sub(a,b)
+    return a-b
+
+method CallSub(a,b)
+     return sub(a,b)
+
+method CallCallSub(a,b)
+    return CallSub(a,b)
+
+main
+    CallSub(10, 5)
+    CallSub(5, 10)
+    CallSub(10.5, 5.4)
+    CallSub(5.4, 10.5)
+    CallCallSub(99, 44)

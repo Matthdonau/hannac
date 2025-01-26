@@ -45,7 +45,7 @@ static std::string ast_to_string(ASTType type)
     }
 }
 
-std::string produce_func_name(std::string &name, std::vector<ASTType> argTypes)
+inline std::string produce_func_name(std::string &name, std::vector<ASTType> argTypes)
 {
     std::string funcName{name};
     for (auto const &el : argTypes)
@@ -271,7 +271,7 @@ struct Binary final : public Expression
 
     virtual std::string get_name() const noexcept override
     {
-        return {mOperator};
+        return "Expression";
     }
 
     virtual ASTType get_return_type() const noexcept override
@@ -374,7 +374,7 @@ struct FunctionDeclaration final : public Expression
     ASTType mReturnType;
 };
 
-llvm::Function *gen_func_decl(std::string &name, std::vector<ASTType> argTypes, ASTType returnType)
+inline llvm::Function *gen_func_decl(std::string &name, std::vector<ASTType> argTypes, ASTType returnType)
 {
 
     auto func = HModuleSingelton::get_module().mModule->getFunction(produce_func_name(name, argTypes));
@@ -448,7 +448,18 @@ struct MethodCall final : public Expression
 
         std::vector<ASTType> ret;
         for (auto const &el : mArguments)
-            ret.push_back(el->get_type());
+        {
+            if (el->get_type() == ASTType::Binary)
+            {
+                // What happens if expression is of variables.
+                el->codegen();
+                ret.push_back(el->get_return_type());
+            }
+            else
+            {
+                ret.push_back(el->get_type());
+            }
+        }
 
         mArgTypes = ret;
         return ret;
@@ -617,20 +628,28 @@ struct FunctionDefinition final : public Expression
             }
 
             std::vector<ASTType> inter;
+            i = 0;
             for (auto const &el : funcCall->getArgNames())
             {
                 auto type = argMap.find(el);
                 if (el != "Int Literal" && el != "Real Literal" && type == argMap.end())
                 {
-                    if (el != "Int Literal" && el != "Real Literal")
+                    if (el != "Int Literal" && el != "Real Literal" && el != "Expression")
+                    {
                         std::cout << "Unkown varibale ->" << el << "<- used in call to " << funcCall->get_name()
                                   << std::endl;
-                    inter.push_back(ASTType::Variable);
+                    }
+                    if (el == "Expression")
+                        inter.push_back(funcCall->get_argtypes()[i]);
+
+                    else
+                        inter.push_back(ASTType::Variable);
                 }
                 else
                 {
                     inter.push_back(type->second);
                 }
+                i++;
             }
 
             i = 0;

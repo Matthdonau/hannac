@@ -1,0 +1,12 @@
+method ExprAsPar(a,b)
+    return a*b
+
+method UnusedParam(a,b,c,d)
+    return 1+2+3+d
+
+main
+    ExprAsPar(10, 5+5)
+    ExprAsPar(10.5, 5.3+5.9)
+    ExprAsPar(10-3, 8*2)
+    ExprAsPar(1.1+1.1, 2.0-1.0)
+    UnusedParam(5,6,7,10)
