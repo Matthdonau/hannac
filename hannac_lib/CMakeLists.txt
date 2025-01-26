@@ -26,6 +26,10 @@ message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 message(STATUS "LLVM include dir in: ${LLVM_INCLUDE_DIR}")
 message(STATUS "LLVM libs used: ${llvm_libs}")
+message(STATUS "LLVM Version: ${LLVM_VERSION}")
+if(${LLVM_VERSION} LESS 19.1)
+    message(FATAL_ERROR "Unsupported LLVM version found. Minimum needed 19.1")
+endif()
 
 # Source files
 set(hannac_HEADERS

@@ -9,7 +9,10 @@ compiled version of it.
 - Since methods don't have type signatures, multiple versions of the same method may exist at the same time
  with different type signatures.
 
- ## Build instructions
+## Requirements
+- Requires installed LLVM >=19.1
+
+## Build instructions
     mkdir build && cd build
     cmake  -DCMAKE_BUILD_TYPE=Release ../
     

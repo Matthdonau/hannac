@@ -85,7 +85,7 @@ struct FunctionDeclaration; // Forward declaration
 class HFuncDeclarations final
 {
   public:
-    static std::map<std::string, std::shared_ptr<hannac::ast::FunctionDeclaration>> &get()
+    static std::map<std::string, std::pair<std::shared_ptr<hannac::ast::FunctionDeclaration>, ASTType>> &get()
     {
         static HFuncDeclarations funcMap;
         return funcMap.mFunctions;
@@ -93,7 +93,7 @@ class HFuncDeclarations final
 
     HFuncDeclarations(const HFuncDeclarations &) = delete;
     HFuncDeclarations &operator=(const HFuncDeclarations &) = delete;
-    std::map<std::string, std::shared_ptr<hannac::ast::FunctionDeclaration>> mFunctions;
+    std::map<std::string, std::pair<std::shared_ptr<hannac::ast::FunctionDeclaration>, ASTType>> mFunctions;
 
   private:
     HFuncDeclarations() = default;
@@ -237,15 +237,6 @@ struct Binary final : public Expression
         // Determine from lhs and rhs which data type to generate code for.
         auto lType = left->getType()->getTypeID();
         auto rType = right->getType()->getTypeID();
-        /*auto l = HNamesMap::get().find(mLHS->get_name());
-        size_t lType = 0;
-        if (l != HNamesMap::get().end())
-            lType = l->second->getType()->getTypeID();
-
-        auto r = HNamesMap::get().find(mLHS->get_name());
-        size_t rType = 0;
-        if (r != HNamesMap::get().end())
-            rType = r->second->getType()->getTypeID();*/
 
         mReturnType = (lType == llvm::Type::DoubleTyID || rType == llvm::Type::DoubleTyID) ? ASTType::RealNumber
                                                                                            : ASTType::Number;
@@ -383,7 +374,7 @@ struct FunctionDeclaration final : public Expression
     ASTType mReturnType;
 };
 
-llvm::Function *gen_func_decl(std::string &name, std::vector<ASTType> argTypes)
+llvm::Function *gen_func_decl(std::string &name, std::vector<ASTType> argTypes, ASTType returnType)
 {
 
     auto func = HModuleSingelton::get_module().mModule->getFunction(produce_func_name(name, argTypes));
@@ -393,8 +384,9 @@ llvm::Function *gen_func_decl(std::string &name, std::vector<ASTType> argTypes)
     auto proto = HFuncDeclarations::get().find(produce_func_name(name, argTypes));
     if (proto != HFuncDeclarations::get().end())
     {
-        proto->second->set_arg_types(argTypes);
-        return proto->second->codegen();
+        std::get<0>(proto->second)->set_arg_types(argTypes);
+        std::get<0>(proto->second)->set_return_type(returnType);
+        return std::get<0>(proto->second)->codegen();
     }
 
     return nullptr;
@@ -413,7 +405,9 @@ struct MethodCall final : public Expression
     virtual llvm::Value *codegen() final
     {
         // Lookup function name first.
-        llvm::Function *func = gen_func_decl(mName, get_argtypes());
+        mReturnType = std::get<1>(HFuncDeclarations::get().find(produce_func_name(mName, get_argtypes()))->second);
+
+        llvm::Function *func = gen_func_decl(mName, get_argtypes(), mReturnType);
         if (HSettings::get_settings().get_verbose())
             std::cout << produce_func_name(mName, get_argtypes()) << std::endl;
         if (func == nullptr)
@@ -435,9 +429,8 @@ struct MethodCall final : public Expression
             args.push_back(el->codegen());
         }
 
-        mReturnType =
-            HFuncDeclarations::get().find(produce_func_name(mName, get_argtypes()))->second->get_return_type();
-
+        // Since this method call is attached to non type version of the calling function reset its type back.
+        mArgTypes = {};
         return HBuilderSingelton::get_builder().mBuilder->CreateCall(func, args, "funccall");
     }
 
@@ -535,7 +528,6 @@ struct FunctionDefinition final : public Expression
 
                 HNamesMap::get()[std::string(el)] = llvmVal.get();
             }
-            std::cout << "HERE" << std::endl;
             // Generate expression in order to know return type.
             ret = mFuncBody->codegen();
             // Set return type.
@@ -545,8 +537,8 @@ struct FunctionDefinition final : public Expression
 
         // Produce function declaration.
         std::string name = get_name();
-        HFuncDeclarations::get()[produce_func_name(name, mArgTypes)] = mDeclaration;
-        llvm::Function *func = gen_func_decl(name, mArgTypes);
+        HFuncDeclarations::get()[produce_func_name(name, mArgTypes)] = {mDeclaration, mReturnType};
+        llvm::Function *func = gen_func_decl(name, mArgTypes, mReturnType);
         if (func == nullptr)
             return nullptr;
 
@@ -559,7 +551,7 @@ struct FunctionDefinition final : public Expression
         for (auto &arg : func->args())
             HNamesMap::get()[std::string(arg.getName())] = &arg;
 
-            ret = mFuncBody->codegen();
+        ret = mFuncBody->codegen();
 
         if (ret)
         {
@@ -645,14 +637,16 @@ struct FunctionDefinition final : public Expression
             for (auto &arg : args)
             {
                 if (arg == ASTType::Variable)
+                {
                     arg = inter[i];
+                }
                 i++;
             }
 
             funcAst->second->set_arg_types(args);
             funcCall->set_arg_types(args);
             // Only generate function if not already happened in previous call to it.
-            auto name = mFuncBody->get_name();
+            auto name = funcCall->get_name();
             auto decl = HFuncDeclarations::get().find(produce_func_name(name, args));
             if (decl == HFuncDeclarations::get().end())
             {
@@ -667,9 +661,8 @@ struct FunctionDefinition final : public Expression
             }
             else
             {
-                std::cout << "HERE2" << std::endl;
-                mDeclaration->set_return_type(decl->second->get_return_type());
-                mReturnType = decl->second->get_return_type();
+                mDeclaration->set_return_type(std::get<1>(decl->second));
+                mReturnType = std::get<1>(decl->second);
             }
         }
         else
