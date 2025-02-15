@@ -1,0 +1,50 @@
+# Comments start with # and are single line.
+
+# Simple method definition.
+# Needs method keyword.
+# Needs return statement.
+method add(a, b)
+    return a+b
+
+method sub(a, b)
+    return a-b
+
+method div(a, b)
+    return a/b
+
+method mult(a, b)
+    return a*b
+
+# Methods can also call other methods.
+method callAdd(a,b)
+    return add(a,b)
+
+# Mathematical operator precedence is give.
+method prec()
+    return 1 + 3*4 - 6/2
+
+
+# 'main' keyword marks start of executable program.
+# Currently main is a list of executable statements.
+main
+    # Methods are typeless.
+    # For each type they are called with a separate method is generated.
+    add(100, 150)
+    add(1.5, 3.8)
+
+    sub(300, 400)
+    sub(3.3, 1.8)
+
+    div(10, 5)
+    div(13.0, 5.0)
+
+    mult(10, 5)
+    mult(13.0, 5.0)
+
+    callAdd(3,5)
+    callAdd(1.8, 5.9)
+
+    prec()
+
+    # Method calls can be method arguments
+    sub(prec(), 5)

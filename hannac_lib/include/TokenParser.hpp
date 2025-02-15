@@ -155,7 +155,7 @@ struct HTokenParser final
         move_parser();
         auto definition = produce_expression();
         auto func = std::make_shared<hannac::ast::MethodDefinition>(std::move(declaration), std::move(definition));
-        if (HSettings::get_settings().get_verbose())
+        if (HSettings::get_settings().get_verbose() > 1)
         {
             std::cout << "Produced function definition for: " << func->get_name() << "(";
             print_method_declaration(func);
@@ -170,7 +170,7 @@ struct HTokenParser final
         }
         ast::HMethodBuffer::get().insert({func->get_name(), func});
 
-        if (HSettings::get_settings().get_verbose())
+        if (HSettings::get_settings().get_verbose() > 1)
             std::cout << std::endl;
 
         return;

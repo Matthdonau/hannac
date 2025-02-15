@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <utility>
 #include <variant>
+#include <string>
 
 // hannac includes
 #include "FileParser.hpp"

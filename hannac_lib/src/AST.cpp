@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <iostream>
 #include <memory>
+#include <string>
 #include <vector>
 
 // hanna includes.
@@ -29,7 +30,7 @@ llvm::Value *Number::codegen()
 
 std::string Number::get_name() const noexcept
 {
-    return "Int Literal";
+    return std::to_string(mNum);
 }
 
 /****************************** Real Number ******************************/
@@ -45,7 +46,7 @@ llvm::Value *RealNumber::codegen()
 
 std::string RealNumber::get_name() const noexcept
 {
-    return "Real Literal";
+    return std::to_string(mNum);
 }
 
 /******************************* Variable ********************************/
@@ -132,6 +133,12 @@ std::string Binary::get_name() const noexcept
 ASTType Binary::get_return_type() const noexcept
 {
     return mReturnType;
+}
+
+std::string Binary::get_call() const
+{
+    std::string call{mLHS->get_name() + mOperator + mRHS->get_name()};
+    return call;
 }
 
 /******************************************************************************
@@ -357,7 +364,7 @@ void MethodDefinition::gen_buffered_func()
                         auto code = funcAst2->second->codegen();
                         // mDeclaration->set_return_type(funcAst->second->get_return_type());
                         // mReturnType = funcAst->second->get_return_type();
-                        if (HSettings::get_settings().get_verbose())
+                        if (HSettings::get_settings().get_verbose() > 1)
                             code->print(llvm::outs());
 
                         // Generate module for function, put code in and open new module.
@@ -370,9 +377,10 @@ void MethodDefinition::gen_buffered_func()
             }
 
             auto type = argMap.find(el);
-            if (el != "Int Literal" && el != "Real Literal" && type == argMap.end())
+            auto varType = funcCall->get_argtypes()[i];
+            if (varType != ASTType::Number && varType != ASTType::RealNumber && type == argMap.end())
             {
-                if (el != "Int Literal" && el != "Real Literal" && el != "Expression")
+                if (varType != ASTType::Number && varType != ASTType::RealNumber && el != "Expression")
                 {
                     std::cout << "Unknown varibale ->" << el << "<- used in call to " << funcCall->get_name()
                               << std::endl;
@@ -410,7 +418,7 @@ void MethodDefinition::gen_buffered_func()
             auto code = funcAst->second->codegen();
             mDeclaration->set_return_type(funcAst->second->get_return_type());
             mReturnType = funcAst->second->get_return_type();
-            if (HSettings::get_settings().get_verbose())
+            if (HSettings::get_settings().get_verbose() > 1)
                 code->print(llvm::outs());
 
             // Generate module for function, put code in and open new module.
@@ -443,7 +451,7 @@ llvm::Value *MethodCall::codegen()
     mReturnType = std::get<1>(HMethodDeclarations::get().find(produce_func_name(mName, get_argtypes()))->second);
 
     llvm::Function *func = gen_func_decl(mName, get_argtypes(), mReturnType);
-    if (HSettings::get_settings().get_verbose())
+    if (HSettings::get_settings().get_verbose() > 1)
         std::cout << produce_func_name(mName, get_argtypes()) << std::endl;
     if (func == nullptr)
     {
@@ -521,5 +529,22 @@ ASTType MethodCall::get_return_type() const noexcept
 {
     return mReturnType;
 }
+
+std::string MethodCall::get_call() const
+{
+    std::string call{mName + "("};
+    bool first{true};
+    for (auto const &el : mArguments)
+    {
+        if (!first)
+            call += ",";
+        first = false;
+        call += el->get_name();
+    }
+    call += ")";
+
+    return call;
+}
+
 } // namespace ast
 } // namespace hannac

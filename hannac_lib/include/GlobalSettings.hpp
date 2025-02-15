@@ -12,11 +12,11 @@ class HSettings final
         return settings;
     }
 
-    void set_verbose() noexcept
+    void set_verbose(int lev) noexcept
     {
-        mVerbose = true;
+        mVerbose = lev;
     }
-    bool get_verbose() const noexcept
+    int get_verbose() const noexcept
     {
         return mVerbose;
     }
@@ -28,7 +28,7 @@ class HSettings final
     HSettings() {};
 
     // Settings
-    bool mVerbose = false;
+    int mVerbose = 0;
 };
 } // namespace hannac
 #endif

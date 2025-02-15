@@ -47,7 +47,11 @@ int main(int argc, char *argv[])
         }
         else if (arg == "-v" || arg == "--verbose")
         {
-            hannac::HSettings::get_settings().set_verbose();
+            hannac::HSettings::get_settings().set_verbose(2);
+        }
+        else if (arg == "-v1" || arg == "--verbose1")
+        {
+            hannac::HSettings::get_settings().set_verbose(1);
         }
         else if (arg == "-h" || arg == "--help")
         {

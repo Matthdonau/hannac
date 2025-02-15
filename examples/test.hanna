@@ -28,7 +28,7 @@ method callSub(a,b)
 # Main method
 main
     4+5
-    9.1 + 2.3
+    9.1 - 5.1 + 2.3
     add(1,4)
     add(1.5,2.51)
     add(100,200)

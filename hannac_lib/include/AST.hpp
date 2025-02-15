@@ -132,6 +132,11 @@ struct Expression
         return ASTType::Number;
     }
 
+    virtual std::string get_call() const
+    {
+        return {"NO CALL TYPE."};
+    }
+
   private:
     ASTType mType;
 };
@@ -219,6 +224,8 @@ struct Binary final : public Expression
 
     virtual ASTType get_return_type() const noexcept override;
 
+    virtual std::string get_call() const override;
+
   private:
     char mOperator;                   // binary operator.
     std::unique_ptr<Expression> mLHS; // Left argument.
@@ -285,6 +292,8 @@ struct MethodCall final : public Expression
     std::vector<std::string> getArgNames();
 
     virtual ASTType get_return_type() const noexcept override;
+
+    virtual std::string get_call() const override;
 
   private:
     std::string mName;

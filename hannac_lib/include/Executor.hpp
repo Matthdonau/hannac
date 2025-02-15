@@ -61,10 +61,10 @@ inline void print_result(HResult &res)
     switch (res.get_type())
     {
     case HResultType::INT:
-        std::cout << "Result: " << res.get_result().i << std::endl;
+        std::cout << "\t" << "Result: " << res.get_result().i << std::endl;
         break;
     case HResultType::REAL:
-        std::cout << "Result: " << res.get_result().r << std::endl;
+        std::cout << "\t" << "Result: " << res.get_result().r << std::endl;
         break;
     }
     return;
@@ -91,12 +91,16 @@ class HExecutor final
             auto declaration =
                 std::make_shared<hannac::ast::MethodDeclaration>("__hanna_execution", std::vector<std::string>());
 
+            if (HSettings::get_settings().get_verbose() > 0)
+                std::cout << "Executing: " << line->get_call() << std::endl;
+
             auto method = std::make_unique<hannac::ast::MethodDefinition>(std::move(declaration), std::move(line));
 
             // Immediately execute artifical generated method.
             hannac::HResult result = execute(std::move(method));
             mState.mResults.push_back(result);
-            if (hannac::HSettings::get_settings().get_verbose())
+
+            if (HSettings::get_settings().get_verbose() > 0)
             {
                 print_result(result);
                 std::cout << std::endl;
@@ -110,7 +114,7 @@ class HExecutor final
     {
         // Generate code.
         auto code = method->codegen();
-        if (HSettings::get_settings().get_verbose())
+        if (HSettings::get_settings().get_verbose() > 1)
         {
             std::cout << "Executing " << method->get_name() << std::endl;
             code->print(llvm::outs());
