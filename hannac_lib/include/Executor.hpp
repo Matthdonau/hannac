@@ -89,9 +89,9 @@ class HExecutor final
         for (auto &line : mProgram)
         {
             auto declaration =
-                std::make_shared<hannac::ast::FunctionDeclaration>("__hanna_execution", std::vector<std::string>());
+                std::make_shared<hannac::ast::MethodDeclaration>("__hanna_execution", std::vector<std::string>());
 
-            auto method = std::make_unique<hannac::ast::FunctionDefinition>(std::move(declaration), std::move(line));
+            auto method = std::make_unique<hannac::ast::MethodDefinition>(std::move(declaration), std::move(line));
 
             // Immediately execute artifical generated method.
             hannac::HResult result = execute(std::move(method));
@@ -106,7 +106,7 @@ class HExecutor final
         return mState.mResults;
     }
 
-    HResult execute(std::unique_ptr<ast::FunctionDefinition> method)
+    HResult execute(std::unique_ptr<ast::MethodDefinition> method)
     {
         // Generate code.
         auto code = method->codegen();

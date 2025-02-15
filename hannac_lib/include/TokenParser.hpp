@@ -34,7 +34,7 @@ struct ParseError : public std::exception
 /******************************************************************************
  ********************************* HELPERS ************************************
  *****************************************************************************/
-inline void print_method_declaration(std::shared_ptr<ast::FunctionDefinition> func)
+inline void print_method_declaration(std::shared_ptr<ast::MethodDefinition> func)
 {
     auto args = func->get_decl()->get_arguments();
     for (size_t i = 0; i < args.size(); i++)
@@ -154,7 +154,7 @@ struct HTokenParser final
             throw ParseError{"Non returning method: " + declaration->get_name()};
         move_parser();
         auto definition = produce_expression();
-        auto func = std::make_shared<hannac::ast::FunctionDefinition>(std::move(declaration), std::move(definition));
+        auto func = std::make_shared<hannac::ast::MethodDefinition>(std::move(declaration), std::move(definition));
         if (HSettings::get_settings().get_verbose())
         {
             std::cout << "Produced function definition for: " << func->get_name() << "(";
@@ -177,7 +177,7 @@ struct HTokenParser final
     }
 
     // Declaration.
-    std::shared_ptr<ast::FunctionDeclaration> produce_declaration()
+    std::shared_ptr<ast::MethodDeclaration> produce_declaration()
     {
         // 1) Expect method name as very first thing after "method" keyword.
         if (mCurrentToken.first != HTokenType::Identifier)
@@ -218,7 +218,7 @@ struct HTokenParser final
         // Eat ')'
         move_parser();
 
-        return std::make_shared<ast::FunctionDeclaration>(methodName, std::move(args));
+        return std::make_shared<ast::MethodDeclaration>(methodName, std::move(args));
     }
 
     /******************************************************************************

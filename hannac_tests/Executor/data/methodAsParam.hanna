@@ -1,0 +1,9 @@
+method addMethod(a,b)
+    return a+b
+
+method fifteen()
+    return 15
+
+main
+    addMethod(1, fifteen())
+    fifteen()

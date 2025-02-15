@@ -42,8 +42,12 @@ set(hannac_HEADERS
     "include/Executor.hpp"
 )
 
+set(hannac_SOURCES
+    "src/AST.cpp"
+)
+
 # Generate a library as well
-add_library(hannac_lib SHARED ${hannac_HEADERS}) 
+add_library(hannac_lib SHARED ${hannac_HEADERS} ${hannac_SOURCES}) 
 target_link_libraries(hannac_lib ${llvm_libs} "-ld_classic")
 set_target_properties(hannac_lib PROPERTIES LINKER_LANGUAGE CXX)
 # Set includes

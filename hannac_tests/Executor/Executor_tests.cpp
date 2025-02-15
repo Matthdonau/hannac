@@ -137,3 +137,21 @@ TEST(HExecutor, ExprAsParameter)
     EXPECT_EQ(hannac::HResultType::INT, results[4].get_type());
     EXPECT_EQ(16, results[4].get_result().i);
 }
+
+
+TEST(HExecutor, MethodAsParam)
+{
+    std::filesystem::path path(__FILE__);
+    hannac::HTokenParser parser{
+        hannac::HLexer{hannac::HFileParser{path.parent_path().string() + "/data/" + "methodAsParam.hanna"}}};
+
+    hannac::HExecutor ex{parser.parse()};
+    auto results{ex()};
+    EXPECT_EQ(results.size(), 2);
+
+    EXPECT_EQ(hannac::HResultType::INT, results[0].get_type());
+    EXPECT_EQ(16, results[0].get_result().i);
+
+    EXPECT_EQ(hannac::HResultType::INT, results[1].get_type());
+    EXPECT_EQ(15, results[1].get_result().i);
+}

@@ -25,6 +25,7 @@ void print_help()
 
     return;
 }
+
 int main(int argc, char *argv[])
 {
     // Parse and check arguments.
