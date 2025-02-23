@@ -1,0 +1,45 @@
+method addNegative(a,b)
+    return a+b
+
+method subNegativeNo()
+    return -7-14
+
+method subNegative(a, b)
+    return a-b
+
+main
+   # Ints
+    -7 + 0
+    7 + 0
+    -7 + 7
+    7.1 + 0.1
+    -7.1 + 0.1
+    -7.1 + 7.1
+    -7.1 - 7.1
+    
+    # INT
+    subNegativeNo()
+    addNegative(-1, -1)
+    addNegative(-1, 1)
+    addNegative(1, -1)
+    addNegative(-0, -0)
+    subNegative(-128, 128)
+    subNegative(128, -128)
+    subNegative(-128, -128)
+
+    # Reals
+    addNegative(-1.4, -1.3)
+    addNegative(-1.4, 1.3)
+    addNegative(1.4, -1.7)
+    addNegative(-0.0, -0.0)
+    subNegative(-128.5, 128.6)
+    subNegative(128.7, -128.7)
+    subNegative(-128.3, -128.3)
+    subNegative(-128.3, +128.3)
+
+    # Special
+    7 - -7
+    -7 - -7
+    -7 + -7
+    -7 - +7
+    7.1 - -7.2

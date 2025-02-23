@@ -11,6 +11,15 @@
 #include <utility>
 #include <vector>
 
+hannac::HTokenRes move_parser_helper(hannac::HLexer &lexer)
+{
+    auto currentToken = lexer.get_token();
+    while (currentToken.first == hannac::HTokenType::EOL)
+        currentToken = lexer.get_token();
+
+    return currentToken;
+}
+
 TEST(HLexer, Comments)
 {
     std::filesystem::path path(__FILE__);
@@ -18,8 +27,8 @@ TEST(HLexer, Comments)
 
     std::vector<hannac::HToken> tokens;
 
-    std::pair<hannac::HTokenType, hannac::HToken> current{};
-    while ((current = lexer.get_token()).first != hannac::HTokenType::END)
+    hannac::HTokenRes current{};
+    while ((current = move_parser_helper(lexer)).first != hannac::HTokenType::END)
     {
         tokens.push_back(current.second);
     }
@@ -34,8 +43,8 @@ TEST(HLexer, IntNumbers)
 
     std::vector<hannac::HToken> tokens;
 
-    std::pair<hannac::HTokenType, hannac::HToken> current{};
-    while ((current = lexer.get_token()).first != hannac::HTokenType::END)
+    hannac::HTokenRes current{};
+    while ((current = move_parser_helper(lexer)).first != hannac::HTokenType::END)
     {
         EXPECT_EQ(hannac::HTokenType::Number, current.first);
         tokens.push_back(current.second);
@@ -58,8 +67,8 @@ TEST(HLexer, RealNumbers)
 
     std::vector<hannac::HToken> tokens;
 
-    std::pair<hannac::HTokenType, hannac::HToken> current{};
-    while ((current = lexer.get_token()).first != hannac::HTokenType::END)
+    hannac::HTokenRes current{};
+    while ((current = move_parser_helper(lexer)).first != hannac::HTokenType::END)
     {
         tokens.push_back(current.second);
     }
@@ -96,16 +105,16 @@ TEST(HLexer, Method)
     std::filesystem::path path(__FILE__);
     hannac::HLexer lexer{hannac::HFileParser{path.parent_path().string() + "/data/" + "method.hanna"}};
 
-    std::vector<std::pair<hannac::HTokenType, hannac::HToken>> tokens;
+    std::vector<hannac::HTokenRes> tokens;
 
-    std::pair<hannac::HTokenType, hannac::HToken> current{};
-    while ((current = lexer.get_token()).first != hannac::HTokenType::END)
+    hannac::HTokenRes current{};
+    while ((current = move_parser_helper(lexer)).first != hannac::HTokenType::END)
     {
         tokens.push_back(current);
     }
     EXPECT_EQ(tokens.size(), 2);
-    std::pair<hannac::HTokenType, hannac::HToken> one{hannac::HTokenType::Method, hannac::HToken{"method"}};
-    std::pair<hannac::HTokenType, hannac::HToken> two{hannac::HTokenType::Identifier, hannac::HToken{"abc"}};
+    hannac::HTokenRes one{hannac::HTokenType::Method, hannac::HToken{"method"}};
+    hannac::HTokenRes two{hannac::HTokenType::Identifier, hannac::HToken{"abc"}};
     EXPECT_EQ(one.first, tokens[0].first);
     EXPECT_EQ(std::get<std::string>(one.second), std::get<std::string>(tokens[0].second));
     EXPECT_EQ(two.first, tokens[1].first);

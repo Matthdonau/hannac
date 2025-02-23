@@ -65,6 +65,9 @@ inline void print_token(HTokenRes &in)
     case HTokenType::Return:
         std::cout << "return" << std::endl;
         break;
+    case HTokenType::EOL:
+        std::cout << "End of line" << std::endl;
+        break;
     case HTokenType::END:
         std::cout << "End" << std::endl;
         break;
@@ -97,7 +100,7 @@ struct HTokenParser final
     std::vector<std::unique_ptr<ast::Expression>> parse()
     {
         // 1) Parse all method definitions.
-        move_parser();
+        move_parser_ignore_eol();
         while (mCurrentToken.first != HTokenType::Main)
         {
             switch (mCurrentToken.first)
@@ -105,6 +108,8 @@ struct HTokenParser final
             case HTokenType::Method:
                 produce_method();
                 break;
+            case HTokenType::EOL:
+                break; // Ignore EOL here.
             case HTokenType::END:
                 throw ParseError("No main method defined in program.");
             default:
@@ -115,7 +120,7 @@ struct HTokenParser final
         // 2) Expect main.
         if (mCurrentToken.first != HTokenType::Main)
             throw ParseError{"Expected defintion of main."};
-        move_parser();
+        move_parser_ignore_eol();
 
         // 3) Parse main.
         while (mCurrentToken.first != HTokenType::END)
@@ -126,6 +131,20 @@ struct HTokenParser final
 
   private:
     // Move parser by one.
+    inline HTokenRes move_parser_ignore_eol()
+    {
+        mWasEOL = false;
+
+        mCurrentToken = mLexer.get_token();
+        while (mCurrentToken.first == HTokenType::EOL)
+        {
+            mCurrentToken = mLexer.get_token();
+            mWasEOL = true;
+        }
+
+        return mCurrentToken;
+    }
+
     inline HTokenRes move_parser()
     {
         mCurrentToken = mLexer.get_token();
@@ -145,14 +164,14 @@ struct HTokenParser final
         // 1) Parse declaration of the method.
         // Expected is "method <METHOD_NAME>(<COMMA_SEPERATED_ARGUMENT_LIST>)"
         // Eat method specifier.
-        move_parser();
+        move_parser_ignore_eol();
         auto declaration = produce_declaration();
 
         // 2) Parse definition of the method which is basically an expression.
         // First thing to expect is a "return" since currently only one line statement methods are supported.
         if (mCurrentToken.first != HTokenType::Return)
             throw ParseError{"Non returning method: " + declaration->get_name()};
-        move_parser();
+        move_parser_ignore_eol();
         auto definition = produce_expression();
         auto func = std::make_shared<hannac::ast::MethodDefinition>(std::move(declaration), std::move(definition));
         if (HSettings::get_settings().get_verbose() > 1)
@@ -186,19 +205,19 @@ struct HTokenParser final
         std::string methodName = std::get<std::string>(mCurrentToken.second);
 
         // 2) Next we expect opening brace "(" followed by 0-N arguments, followed by ")".
-        move_parser();
+        move_parser_ignore_eol();
         if (mCurrentToken.first != HTokenType::Character || std::get<char>(mCurrentToken.second) != '(')
             throw ParseError{"Expected '(' in method declaration of: " + methodName};
 
         // 3) Now we expect the function arguments.
         // Until we hit ")" we expect only Identifiers.
         std::vector<std::string> args;
-        while ((move_parser()).first == HTokenType::Identifier)
+        while ((move_parser_ignore_eol()).first == HTokenType::Identifier)
         {
             args.push_back(std::get<std::string>(mCurrentToken.second));
 
             // Skip ','
-            move_parser();
+            move_parser_ignore_eol();
             if (mCurrentToken.first == HTokenType::Character && std::get<char>(mCurrentToken.second) != ',')
             {
                 break;
@@ -216,7 +235,7 @@ struct HTokenParser final
             throw ParseError{"Expected ')' or variable in method declaration of: " + methodName};
         }
         // Eat ')'
-        move_parser();
+        move_parser_ignore_eol();
 
         return std::make_shared<ast::MethodDeclaration>(methodName, std::move(args));
     }
@@ -226,14 +245,29 @@ struct HTokenParser final
      *****************************************************************************/
     std::unique_ptr<ast::Expression> produce_num()
     {
+        // Check sign.
+        int sign = 1;
+        if (mCurrentToken.first == HTokenType::Character)
+        {
+            if (std::get<char>(mCurrentToken.second) == '-')
+                sign = -1;
+            else if (std::get<char>(mCurrentToken.second) == '+')
+                sign = 1;
+            else
+                throw ParseError{"Unknown character while expecting expression statement."};
+
+            move_parser_ignore_eol();
+        }
+
         std::unique_ptr<ast::Expression> num;
         // Create number AST.
         if (mCurrentToken.first == HTokenType::Number)
-            num = std::make_unique<ast::Number>(std::get<std::int64_t>(mCurrentToken.second));
+            num = std::make_unique<ast::Number>(sign * std::get<std::int64_t>(mCurrentToken.second));
         else
-            num = std::make_unique<ast::RealNumber>(std::get<double>(mCurrentToken.second));
+            num = std::make_unique<ast::RealNumber>(sign * std::get<double>(mCurrentToken.second));
+
         // Eat number and progress mCurrentToken.
-        move_parser();
+        move_parser_ignore_eol();
 
         return num;
     }
@@ -250,7 +284,7 @@ struct HTokenParser final
         auto const name = std::get<std::string>(mCurrentToken.second);
 
         // 2) Differentiate between variable and method call.
-        move_parser();
+        move_parser_ignore_eol();
         if (mCurrentToken.first != HTokenType::Character || std::get<char>(mCurrentToken.second) != '(')
         {
             // Variable reference.
@@ -262,20 +296,25 @@ struct HTokenParser final
 
             // Expression.
             // Eat '('
-            move_parser();
+            move_parser_ignore_eol();
             HTokenType type = mCurrentToken.first;
             while (mCurrentToken.first != HTokenType::END)
             {
                 if (type == HTokenType::Character)
                 {
                     auto symbol = std::get<char>(mCurrentToken.second);
-                    move_parser();
-                    type = mCurrentToken.first;
-                    if (symbol == ')')
-                        break;
 
-                    if (symbol == ',')
-                        continue;
+                    // -/+ are sign symbols we cannot skip.
+                    if (symbol != '-' && symbol != '+')
+                    {
+                        move_parser_ignore_eol();
+                        type = mCurrentToken.first;
+                        if (symbol == ')')
+                            break;
+
+                        if (symbol == ',')
+                            continue;
+                    }
                 }
 
                 // Add argument.
@@ -333,7 +372,10 @@ struct HTokenParser final
             return produce_identifier_expression();
         case HTokenType::Number:
         case HTokenType::RealNumber:
+        case HTokenType::Character:
             return produce_num();
+        case HTokenType::EOL:
+            return nullptr;
         default:
             throw ParseError{"Unknown character while expecting expression statement."};
         }
@@ -352,6 +394,9 @@ struct HTokenParser final
                 if (mOpPrecedence.find(op) != mOpPrecedence.end())
                     prec = mOpPrecedence[op];
             }
+            else if (mCurrentToken.first == HTokenType::EOL)
+                return LHS;
+
             // If not binary operator or operator with less precedence, return.
             if (prec < expr_precedence)
                 return LHS;
@@ -360,7 +405,7 @@ struct HTokenParser final
             char binOp = std::get<char>(mCurrentToken.second);
 
             // 2) Parse right hand side.
-            move_parser();
+            move_parser_ignore_eol();
             auto RHS = parse_statement();
             if (!RHS)
                 return nullptr;
@@ -372,6 +417,14 @@ struct HTokenParser final
                 char op = std::get<char>(mCurrentToken.second);
                 if (mOpPrecedence.find(op) != mOpPrecedence.end())
                     nextPrec = mOpPrecedence[op];
+            }
+
+            // Statement ended with EOL.
+            if (mWasEOL)
+            {
+                // Merge LHS/RHS
+                LHS = std::make_unique<ast::Binary>(binOp, std::move(LHS), std::move(RHS));
+                return LHS;
             }
 
             // 4) Decide which way to go.
@@ -389,6 +442,7 @@ struct HTokenParser final
 
     HLexer mLexer;
     HTokenRes mCurrentToken;
+    bool mWasEOL = false;
     std::map<char, int> mOpPrecedence{{'+', 20}, {'-', 20}, {'*', 40}, {'/', 40}};
     std::vector<std::unique_ptr<ast::Expression>> mProgram;
 };

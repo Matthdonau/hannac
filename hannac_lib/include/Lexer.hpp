@@ -4,9 +4,9 @@
 // stdlib includes
 #include <cctype>
 #include <cstdint>
+#include <string>
 #include <utility>
 #include <variant>
-#include <string>
 
 // hannac includes
 #include "FileParser.hpp"
@@ -40,19 +40,21 @@ enum class HTokenType : std::uint8_t
 {
     // End of file.
     END = 0,
-    Character = 1,
+    EOL = 1,
+
+    Character = 2,
 
     // Functional.
-    Method = 2,
-    Return = 3,
+    Method = 3,
+    Return = 4,
 
     // Primary.
-    Identifier = 4,
-    Number = 5,
-    RealNumber = 6,
+    Identifier = 5,
+    Number = 6,
+    RealNumber = 7,
 
     // Main.
-    Main = 7
+    Main = 8
 };
 
 struct HLexer final
@@ -69,6 +71,11 @@ struct HLexer final
         // Skip ahead all whitespaces.
         while (std::isspace(mCurrent))
         {
+            if (mCurrent == '\n')
+            {
+                mCurrent = mParser.read();
+                return {HTokenType::EOL, '\n'};
+            }
             mCurrent = mParser.read();
         }
 
